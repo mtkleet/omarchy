@@ -9,6 +9,7 @@ REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 EXPECTED_ROOT="$(realpath -m "$HOME/.local/omarchy")"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+MIGRATION_STATE_DIR="${OMARCHY_MIGRATION_STATE:-$HOME/.local/state/omarchy/migrations}"
 BACKUP_DIR="$STATE_HOME/omarchy-setup/backups/$(date +%Y%m%d-%H%M%S)"
 
 die() {
@@ -98,6 +99,27 @@ install_config_file() {
   printf 'Installed: %s\n' "$destination"
 }
 
+initialize_migration_baseline() {
+  local migration count=0
+
+  [[ -d "$REPO_ROOT/migrations" ]] || die "Missing repository migrations directory."
+
+  if [[ -d "$MIGRATION_STATE_DIR" ]] && compgen -G "$MIGRATION_STATE_DIR/*.sh" >/dev/null; then
+    echo "Existing migration state detected; preserving it."
+    return
+  fi
+
+  mkdir -p "$MIGRATION_STATE_DIR"
+
+  for migration in "$REPO_ROOT"/migrations/*.sh; do
+    [[ -f "$migration" ]] || continue
+    touch "$MIGRATION_STATE_DIR/${migration##*/}"
+    ((count += 1))
+  done
+
+  printf 'Initialized migration baseline: %s existing migrations marked as part of this setup; none were executed.\n' "$count"
+}
+
 echo "===== TERMINAL CONFIGURATION ====="
 install_config_file "config/xdg-terminal-exec/hyprland-xdg-terminals.list" "hyprland-xdg-terminals.list"
 
@@ -108,6 +130,10 @@ install_fragment "uwsm/env-hyprland.d/10-omarchy"
 echo
 echo "===== HYPRLAND CONFIGURATION ====="
 "$REPO_ROOT/bin/omarchy-refresh-hyprland"
+
+echo
+echo "===== MIGRATION BASELINE ====="
+initialize_migration_baseline
 
 echo
 echo "===== OPTIONAL COMMAND CHECK ====="

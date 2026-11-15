@@ -44,6 +44,10 @@ Verify:
 
 ## 5. Update
 
-    cd ~/.local/omarchy
-    git pull --ff-only origin quattro
-    omarchy setup hyprland
+    omarchy update
+
+The updater fast-forwards the current branch from its configured tracking branch (`origin/quattro`) and updates system packages. It does not automatically merge the official `upstream` remote.
+
+Push local commits to `origin/quattro` before updating. Integrate changes from the official Omarchy repository into this fork separately.
+
+The initial setup records migrations already included in this checkout as a baseline without executing them. Migrations added by subsequent updates run normally.
