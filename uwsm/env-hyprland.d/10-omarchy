@@ -1,0 +1,3 @@
+export OMARCHY_PATH="$HOME/.local/omarchy"
+export PATH="$OMARCHY_PATH/bin:$PATH"
+export XCURSOR_THEME="Qogir-Dark"

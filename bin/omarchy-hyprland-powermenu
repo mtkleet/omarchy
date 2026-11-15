@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# omarchy:hidden=true
+# omarchy:summary=Open the Hyprland power menu.
 # Qogir-Dark power menu for Hyprland, using Rofi.
 
 set -Eeuo pipefail

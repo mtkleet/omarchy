@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# omarchy:hidden=true
+# omarchy:summary=Control media playback.
 
 if [[ $# -lt 1 ]]
 then

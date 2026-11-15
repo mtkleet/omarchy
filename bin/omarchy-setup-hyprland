@@ -1,0 +1,136 @@
+#!/bin/bash
+# omarchy:group=setup
+# omarchy:name=hyprland
+# omarchy:summary=Set up this fork's Hyprland configuration and UWSM environment.
+
+set -Eeuo pipefail
+
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+EXPECTED_ROOT="$(realpath -m "$HOME/.local/omarchy")"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+STATE_HOME="${XDG_STATE_HOME:-$HOME/.local/state}"
+BACKUP_DIR="$STATE_HOME/omarchy-setup/backups/$(date +%Y%m%d-%H%M%S)"
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+if [[ $REPO_ROOT != "$EXPECTED_ROOT" ]]; then
+  die "Clone this repository to ~/.local/omarchy first."
+fi
+
+for file in \
+  default/hypr/bootstrap.lua \
+  config/hypr/hyprland.lua \
+  config/hypr/bindings.lua \
+  config/xdg-terminal-exec/hyprland-xdg-terminals.list \
+  uwsm/env-hyprland.d/10-omarchy \
+  bin/omarchy-refresh-hyprland
+do
+  [[ -f "$REPO_ROOT/$file" ]] || die "Missing repository file: $file"
+done
+
+missing_core=()
+for cmd in uwsm hyprctl quickshell socat xdg-terminal-exec; do
+  command -v "$cmd" >/dev/null 2>&1 || missing_core+=("$cmd")
+done
+
+if ((${#missing_core[@]})); then
+  printf 'Missing required commands:\n' >&2
+  printf '  %s\n' "${missing_core[@]}" >&2
+  exit 1
+fi
+
+export OMARCHY_PATH="$REPO_ROOT"
+export PATH="$REPO_ROOT/bin:$PATH"
+
+install_fragment() {
+  local relative="$1"
+  local source="$REPO_ROOT/$relative"
+  local destination="$CONFIG_HOME/$relative"
+
+  [[ -f "$source" ]] || die "Missing environment fragment: $source"
+
+  mkdir -p "$(dirname "$destination")"
+
+  if [[ -L "$destination" ]]; then
+    local backup="$BACKUP_DIR/$relative"
+    mkdir -p "$(dirname "$backup")"
+    cp -a -- "$destination" "$backup"
+    rm -- "$destination"
+    printf 'Backup created: %s\n' "$backup"
+  elif [[ -e "$destination" ]] && ! cmp -s "$source" "$destination"; then
+    local backup="$BACKUP_DIR/$relative"
+    mkdir -p "$(dirname "$backup")"
+    cp -a -- "$destination" "$backup"
+    printf 'Backup created: %s\n' "$backup"
+  fi
+
+  install -Dm644 "$source" "$destination"
+  printf 'Installed: %s\n' "$destination"
+}
+
+install_config_file() {
+  local relative_source="$1"
+  local relative_destination="$2"
+  local source="$REPO_ROOT/$relative_source"
+  local destination="$CONFIG_HOME/$relative_destination"
+
+  [[ -f "$source" ]] || die "Missing repository file: $source"
+
+  mkdir -p "$(dirname "$destination")"
+
+  if [[ -L "$destination" ]]; then
+    local backup="$BACKUP_DIR/$relative_destination"
+    mkdir -p "$(dirname "$backup")"
+    cp -a -- "$destination" "$backup"
+    rm -- "$destination"
+    printf 'Backup created: %s\n' "$backup"
+  elif [[ -e "$destination" ]] && ! cmp -s "$source" "$destination"; then
+    local backup="$BACKUP_DIR/$relative_destination"
+    mkdir -p "$(dirname "$backup")"
+    cp -a -- "$destination" "$backup"
+    printf 'Backup created: %s\n' "$backup"
+  fi
+
+  install -Dm644 "$source" "$destination"
+  printf 'Installed: %s\n' "$destination"
+}
+
+echo "===== TERMINAL CONFIGURATION ====="
+install_config_file "config/xdg-terminal-exec/hyprland-xdg-terminals.list" "hyprland-xdg-terminals.list"
+
+echo
+echo "===== UWSM ENVIRONMENT ====="
+install_fragment "uwsm/env-hyprland.d/10-omarchy"
+
+echo
+echo "===== HYPRLAND CONFIGURATION ====="
+"$REPO_ROOT/bin/omarchy-refresh-hyprland"
+
+echo
+echo "===== OPTIONAL COMMAND CHECK ====="
+missing_optional=()
+for cmd in \
+  rofi alacritty firefox thunar grim brightnessctl \
+  wpctl pactl playerctl mpc hyprlock notify-send udiskie
+do
+  command -v "$cmd" >/dev/null 2>&1 || missing_optional+=("$cmd")
+done
+
+if [[ ! -d /usr/share/icons/Qogir-Dark ]]; then
+  missing_optional+=("Qogir-Dark cursor theme")
+fi
+
+if ((${#missing_optional[@]})); then
+  printf 'Some features need additional packages or resources:\n'
+  printf '  %s\n' "${missing_optional[@]}"
+else
+  echo "All checked commands and resources are available."
+fi
+
+echo
+echo "Setup completed."
+echo "UWSM environment changes take effect after logging out and back in."
+echo "Use: uwsm stop"

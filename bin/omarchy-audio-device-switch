@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# omarchy:hidden=true
+# omarchy:summary=Switch the default audio output device.
 
 # audio-device-switch - audio device switch with a keybind
 # Adapted from this:
