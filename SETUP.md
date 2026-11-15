@@ -6,7 +6,7 @@ Arch Linux setup using this Omarchy Quattro fork.
 
     sudo pacman -Syu
     sudo pacman -S --needed \
-      hyprland uwsm quickshell socat xdg-terminal-exec \
+      hyprland uwsm quickshell socat xdg-terminal-exec gum \
       rofi alacritty firefox thunar hyprlock \
       pipewire pipewire-pulse wireplumber libpulse playerctl libnotify \
       networkmanager bluez bluez-utils udiskie \

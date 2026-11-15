@@ -33,7 +33,7 @@ do
 done
 
 missing_core=()
-for cmd in uwsm hyprctl quickshell socat xdg-terminal-exec; do
+for cmd in uwsm hyprctl quickshell socat xdg-terminal-exec gum; do
   command -v "$cmd" >/dev/null 2>&1 || missing_core+=("$cmd")
 done
 
