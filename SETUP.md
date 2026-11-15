@@ -44,10 +44,20 @@ Verify:
 
 ## 5. Update
 
-    omarchy update
+Update system packages separately using the distribution's package manager.
 
-The updater fast-forwards the current branch from its configured tracking branch (`origin/quattro`) and updates system packages. It does not automatically merge the official `upstream` remote.
+Commit and push local changes to `origin/quattro` before pulling updates.
 
-Push local commits to `origin/quattro` before updating. Integrate changes from the official Omarchy repository into this fork separately.
+To update this fork:
 
-The initial setup records migrations already included in this checkout as a baseline without executing them. Migrations added by subsequent updates run normally.
+    cd ~/.local/omarchy
+    git pull --ff-only origin quattro
+    bin/omarchy-setup-hyprland
+
+Changes from the official Omarchy upstream are not imported automatically. Review and integrate them into this fork separately.
+
+Check newly introduced migrations with `omarchy-migrate --pending` before deciding whether to run them.
+
+The initial setup records migrations already included in this checkout as a baseline without executing them. Migrations introduced by subsequent updates remain pending and should be reviewed separately.
+
+Do not use `omarchy update` with this configuration-only setup. It is intended for a complete Omarchy installation.
