@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# Qogir-Dark power menu for Hyprland, using Rofi.
+
+set -Eeuo pipefail
+
+notify_error() {
+    local message="$1"
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send --app-name="Hyprland Power Menu" --urgency=critical "Power menu" "$message"
+    else
+        printf 'hyprland-powermenu: %s\n' "$message" >&2
+    fi
+}
+
+for dependency in rofi systemctl uwsm; do
+    if ! command -v "$dependency" >/dev/null 2>&1; then
+        notify_error "Required command not found: $dependency"
+        exit 1
+    fi
+done
+
+if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || ! command -v hyprctl >/dev/null 2>&1; then
+    notify_error "This menu must be run inside a Hyprland session."
+    exit 1
+fi
+
+# Keep the menu visually consistent with the Qogir-Dark Quickshell bar.
+read -r -d '' ROFI_THEME <<'RASI' || true
+* {
+    font: "MesloLGS Nerd Font 11";
+    background: #32343D;
+    background-alt: #282A33;
+    foreground: #e6ebef;
+    selected: #5294e2;
+    active: #68a2e6;
+    urgent: #FC4138;
+    border: #42444b;
+}
+window {
+    location: center;
+    anchor: center;
+    width: 390px;
+    padding: 14px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 12px;
+    background-color: @background;
+}
+mainbox {
+    spacing: 10px;
+    background-color: transparent;
+    children: [ inputbar, message, listview ];
+}
+inputbar {
+    padding: 9px 11px;
+    border-radius: 8px;
+    background-color: @background-alt;
+    text-color: @foreground;
+    children: [ prompt, entry ];
+}
+prompt {
+    margin: 0px 8px 0px 0px;
+    text-color: @active;
+}
+entry {
+    text-color: @foreground;
+    placeholder: "Choose an action";
+    placeholder-color: #9297a1;
+}
+message {
+    padding: 0px 4px;
+    background-color: transparent;
+    text-color: #c0c4c9;
+}
+textbox {
+    background-color: transparent;
+    text-color: #c0c4c9;
+}
+listview {
+    columns: 1;
+    lines: 6;
+    fixed-height: true;
+    cycle: false;
+    spacing: 5px;
+    scrollbar: false;
+    background-color: transparent;
+}
+element {
+    padding: 9px 11px;
+    border-radius: 8px;
+    background-color: transparent;
+    text-color: @foreground;
+}
+element normal.normal {
+    background-color: transparent;
+    text-color: @foreground;
+}
+element alternate.normal {
+    background-color: #2d2f38;
+    text-color: @foreground;
+}
+element selected.normal {
+    background-color: @selected;
+    text-color: #ffffff;
+}
+element selected.active {
+    background-color: @active;
+    text-color: #ffffff;
+}
+element-text {
+    background-color: transparent;
+    text-color: inherit;
+}
+RASI
+
+menu_labels=()
+actions=()
+
+if command -v hyprlock >/dev/null 2>&1; then
+    menu_labels+=("  Lock screen")
+    actions+=("lock")
+fi
+
+menu_labels+=("󰤄  Suspend" "󰍃  Log out" "󰜉  Restart" "  Shut down" "󰜺  Cancel")
+actions+=("suspend" "logout" "reboot" "poweroff" "cancel")
+
+selection=""
+if ! selection="$(printf '%s\n' "${menu_labels[@]}" | rofi \
+    -dmenu \
+    -i \
+    -no-custom \
+    -markup-rows \
+    -p "Power" \
+    -mesg "Qogir-Dark  •  Hyprland" \
+    -format i \
+    -theme-str "$ROFI_THEME")"; then
+    # Escape or closing the menu is a no-op.
+    exit 0
+fi
+
+if [[ ! "$selection" =~ ^[0-9]+$ ]] || (( selection >= ${#actions[@]} )); then
+    exit 0
+fi
+
+action="${actions[$selection]}"
+
+case "$action" in
+    lock)
+        exec hyprlock
+        ;;
+    suspend)
+        # Lock first when hyprlock is available; otherwise suspend normally.
+        if command -v hyprlock >/dev/null 2>&1; then
+            hyprlock >/dev/null 2>&1 &
+            sleep 1
+        fi
+        systemctl suspend || notify_error "Could not suspend the system."
+        ;;
+    logout)
+        uwsm stop || notify_error "Could not close the Hyprland session."
+        ;;
+    reboot)
+        systemctl reboot || notify_error "Could not reboot the system."
+        ;;
+    poweroff)
+        systemctl poweroff || notify_error "Could not shut down the system."
+        ;;
+    cancel)
+        exit 0
+        ;;
+esac
