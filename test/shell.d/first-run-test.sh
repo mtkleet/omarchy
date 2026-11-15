@@ -70,23 +70,20 @@ fi
 (( ${#units[@]} > 1 )) || fail "first-run enables each unit on its own"
 pass "missing optional units do not block first-run"
 
-# First run offers an update only when there is one. A fresh install from
-# current media is already current, and a critical toast that leads to
-# "nothing to do" teaches people to dismiss the next one.
+# First run must not interrupt login with an automatic system-update prompt.
 cat >"$mock_bin/nm-online" <<'SH'
 #!/bin/bash
 exit 0
 SH
-# Like the real one, it looks for Omarchy's package with checkupdates.
 cat >"$mock_bin/omarchy-update-available" <<'SH'
 #!/bin/bash
-checkupdates >/dev/null
-exit "$OMARCHY_TEST_OMARCHY_UPDATE"
+echo omarchy-update-available >>"$OMARCHY_TEST_CALLS"
+exit 0
 SH
 cat >"$mock_bin/checkupdates" <<'SH'
 #!/bin/bash
 echo checkupdates >>"$OMARCHY_TEST_CALLS"
-exit "$OMARCHY_TEST_CHECKUPDATES"
+exit 0
 SH
 cat >"$mock_bin/omarchy-notification-send" <<'SH'
 #!/bin/bash
@@ -99,33 +96,25 @@ SH
 chmod +x "$mock_bin/nm-online" "$mock_bin/omarchy-update-available" \
   "$mock_bin/checkupdates" "$mock_bin/omarchy-notification-send" "$mock_bin/omarchy-i18n"
 
-# Arguments: OMARCHY_PATH, omarchy-update-available's exit status, then
-# checkupdates'.
-offers_update() {
+run_wifi_first_run() {
   : >"$test_tmp/calls"
   OMARCHY_PATH="$1" PATH="$mock_bin:$PATH" OMARCHY_TEST_CALLS="$test_tmp/calls" \
-    OMARCHY_TEST_OMARCHY_UPDATE="$2" OMARCHY_TEST_CHECKUPDATES="$3" \
     bash -c 'source "$1"; wait' _ "$ROOT/install/user/first-run/wifi.sh"
-  grep -Fq -- '--exec omarchy-launch-floating-terminal-with-presentation omarchy-update' "$test_tmp/calls"
 }
 
-installed=/usr/share/omarchy
 checkout="$test_tmp/omarchy-checkout"
 mkdir -p "$checkout"
 ln -s "$ROOT/install" "$checkout/install"
 
-if offers_update "$installed" 1 2; then
-  fail "first run offers no update when nothing is pending"
+run_wifi_first_run "$checkout"
+
+if grep -Eq 'firstRun\.updateTitle|omarchy-launch-floating-terminal-with-presentation omarchy-update' "$test_tmp/calls"; then
+  fail "first-run sends an automatic system-update notification"
 fi
-[[ $(grep -c '^checkupdates$' "$test_tmp/calls") == 1 ]] ||
-  fail "first run syncs the package databases once"
-offers_update "$installed" 1 0 || fail "first run offers an update when packages are pending"
-offers_update "$installed" 1 1 || fail "first run offers an update when it cannot tell whether one is pending"
-offers_update "$checkout" 0 2 || fail "first run offers an update when a development checkout is behind"
-if offers_update "$checkout" 1 2; then
-  fail "first run offers no update when a current checkout has nothing pending"
+if grep -Fxq 'checkupdates' "$test_tmp/calls" || grep -Fxq 'omarchy-update-available' "$test_tmp/calls"; then
+  fail "first-run checks for system updates automatically"
 fi
-pass "first run offers an update only when there is one"
+pass "first-run does not check for or notify about system updates"
 
 # Choosing an agent installs it, so the invitation waits for a connection, not
 # for the first update.
@@ -137,7 +126,7 @@ cat >"$mock_bin/omarchy-done" <<'SH'
 [[ $1 == "ensure" ]]
 SH
 chmod +x "$mock_bin/omarchy-default-agent" "$mock_bin/omarchy-done"
-offers_update "$checkout" 1 2 || true
+run_wifi_first_run "$checkout" || true
 grep -Fq -- '--exec omarchy menu summon agent.harness' "$test_tmp/calls" ||
   fail "first run invites a default agent once there is a connection"
 pass "first run invites a default agent once there is a connection"
