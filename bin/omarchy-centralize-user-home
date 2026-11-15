@@ -1,0 +1,126 @@
+#!/bin/bash
+# omarchy:summary=Centralize Omarchy-managed user directories
+# omarchy:hidden=true
+
+set -Eeuo pipefail
+
+SHELL_HOME="$HOME/.local/omarchyshell"
+AGENT_HOME="$SHELL_HOME/agents"
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+preflight() {
+  local home_path="$1"
+  local target_path="$2"
+  local home_real target_real
+
+  if [[ -L "$home_path" ]]; then
+    home_real=$(realpath -m -- "$home_path")
+    target_real=$(realpath -m -- "$target_path")
+    if [[ "$home_real" != "$target_real" ]]; then
+      printf 'Preserving custom symlink: %s -> %s\n' "$home_path" "$(readlink -- "$home_path")"
+      return 0
+    fi
+  elif [[ -e "$home_path" ]]; then
+    [[ -d "$home_path" ]] || die "Not a directory: $home_path"
+    [[ ! -e "$target_path" && ! -L "$target_path" ]] || die "Conflict: both $home_path and $target_path exist"
+  fi
+
+  if [[ -e "$target_path" && ! -d "$target_path" ]]; then
+    die "Target is not a directory: $target_path"
+  fi
+}
+
+centralize_with_link() {
+  local home_path="$1"
+  local target_path="$2"
+  local home_real target_real
+
+  mkdir -p "$(dirname -- "$target_path")"
+
+  if [[ -L "$home_path" ]]; then
+    home_real=$(realpath -m -- "$home_path")
+    target_real=$(realpath -m -- "$target_path")
+    if [[ "$home_real" == "$target_real" ]]; then
+      mkdir -p "$target_path"
+    else
+      return 0
+    fi
+  else
+    if [[ -e "$home_path" ]]; then
+      mv -- "$home_path" "$target_path"
+    else
+      mkdir -p "$target_path"
+    fi
+    ln -s -- "$target_path" "$home_path"
+  fi
+
+  printf 'Centralized: %s -> %s\n' "$home_path" "$target_path"
+}
+
+centralize_without_link() {
+  local home_path="$1"
+  local target_path="$2"
+  local home_real target_real
+
+  mkdir -p "$(dirname -- "$target_path")"
+
+  if [[ -L "$home_path" ]]; then
+    home_real=$(realpath -m -- "$home_path")
+    target_real=$(realpath -m -- "$target_path")
+    if [[ "$home_real" == "$target_real" ]]; then
+      rm -- "$home_path"
+    else
+      return 0
+    fi
+  fi
+
+  if [[ -e "$home_path" ]]; then
+    mv -- "$home_path" "$target_path"
+  elif [[ ! -e "$target_path" ]]; then
+    mkdir -p "$target_path"
+  fi
+
+  printf 'Centralized: %s\n' "$target_path"
+}
+
+umask 077
+mkdir -p "$SHELL_HOME" "$AGENT_HOME"
+chmod 700 "$SHELL_HOME" "$AGENT_HOME"
+
+LINK_DIRS=(
+  "$HOME/.agents|$AGENT_HOME/.agents"
+  "$HOME/.claude|$AGENT_HOME/.claude"
+  "$HOME/.codex|$AGENT_HOME/.codex"
+  "$HOME/.gemini|$AGENT_HOME/.gemini"
+  "$HOME/.hermes|$AGENT_HOME/.hermes"
+  "$HOME/.pi|$AGENT_HOME/.pi"
+  "$HOME/Downloads|$SHELL_HOME/Downloads"
+  "$HOME/Pictures|$SHELL_HOME/Pictures"
+  "$HOME/Videos|$SHELL_HOME/Videos"
+)
+
+NO_LINK_DIRS=(
+  "$HOME/Work|$SHELL_HOME/Work"
+  "$HOME/Projects|$SHELL_HOME/Projects"
+)
+
+for spec in "${LINK_DIRS[@]}" "${NO_LINK_DIRS[@]}"; do
+  IFS='|' read -r home_path target_path <<< "$spec"
+  preflight "$home_path" "$target_path"
+done
+
+for spec in "${LINK_DIRS[@]}"; do
+  IFS='|' read -r home_path target_path <<< "$spec"
+  centralize_with_link "$home_path" "$target_path"
+done
+
+for spec in "${NO_LINK_DIRS[@]}"; do
+  IFS='|' read -r home_path target_path <<< "$spec"
+  centralize_without_link "$home_path" "$target_path"
+done
+
+printf 'Centralized user data root: %s\n' "$SHELL_HOME"

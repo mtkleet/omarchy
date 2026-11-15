@@ -54,7 +54,8 @@ done
 
 # Agents refuse to remember trust for $HOME, so launches from the keybinding or
 # menu start in the work directory instead of re-asking on every session.
-[[ $PWD == "$HOME" && -d $HOME/Work ]] && cd "$HOME/Work"
+WORK_DIR="$HOME/.local/omarchyshell/Work"
+[[ $PWD == "$HOME" && -d "$WORK_DIR" ]] && cd "$WORK_DIR"
 
 # --agent launches a given agent instead of the default: the panel's terminal
 # button on each subscription opens the harness made for it, Codex for OpenAI.

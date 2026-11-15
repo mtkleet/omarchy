@@ -29,6 +29,8 @@ Install the Qogir cursor theme:
 
 This deploys the Hyprland configuration and UWSM environment. Existing files are backed up before replacement.
 
+Omarchy-managed work, projects, downloads, pictures, videos, and AI agent data are stored under `~/.local/omarchyshell`. Compatibility symlinks are used where applications expect conventional paths. The setup does not modify XDG user-directory settings and does not create `Documents` or `Music`.
+
 The setup script does not install packages or configure a display manager.
 
 ## 4. Start Hyprland

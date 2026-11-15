@@ -2,7 +2,7 @@
 iso2sd() {
   if (( $# < 1 )); then
     echo "Usage: iso2sd <input_file> [output_device]"
-    echo "Example: iso2sd ~/Downloads/ubuntu-25.04-desktop-amd64.iso /dev/sda"
+    echo "Example: iso2sd ~/.local/omarchyshell/Downloads/ubuntu-25.04-desktop-amd64.iso /dev/sda"
     return 1
   fi
 

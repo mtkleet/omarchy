@@ -162,5 +162,5 @@ o.rebind(
 o.rebind(
   "PRINT",
   "Screenshot",
-  'mkdir -p "$HOME/Pictures/Screenshots" && grim "$HOME/Pictures/Screenshots/$(date +%F_%H-%M-%S).png"'
+  'mkdir -p "$HOME/.local/omarchyshell/Pictures/Screenshots" && grim "$HOME/.local/omarchyshell/Pictures/Screenshots/$(date +%F_%H-%M-%S).png"'
 )

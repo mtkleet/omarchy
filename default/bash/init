@@ -13,7 +13,7 @@ fi
 if command -v try &> /dev/null; then
   try() {
     unset -f try
-    eval "$(SHELL=/bin/bash command try init ~/Work/tries)"
+    eval "$(SHELL=/bin/bash command try init ~/.local/omarchyshell/Work/tries)"
     try "$@"
   }
 fi

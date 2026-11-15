@@ -1,3 +1,3 @@
 # Setup default work directory (and tries)
-mkdir -p "$HOME/Work"
-mkdir -p "$HOME/Work/tries"
+WORK_DIR="$HOME/.local/omarchyshell/Work"
+mkdir -p "$WORK_DIR" "$WORK_DIR/tries"
