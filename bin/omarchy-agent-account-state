@@ -99,7 +99,12 @@ def usage_record_path(provider: str) -> Path:
 # those are how an added account is selected, so honoring them here would make
 # whichever account launched this command look like the primary.
 def primary_home(provider: str) -> Path:
-  return Path.home() / f".{provider}"
+  env_name = PROVIDERS[provider]["home_env"]
+  configured = os.environ.get(env_name, "").strip()
+  if configured:
+    return Path(configured).expanduser()
+  agent_home = Path(os.environ.get("OMARCHY_AGENT_HOME") or Path.home() / ".local" / "omarchyshell" / "agents")
+  return agent_home / f".{provider}"
 
 
 def account_home(provider: str, account: dict[str, Any]) -> Path:

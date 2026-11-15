@@ -136,7 +136,7 @@ def find_codex_binary():
 
 
 def codex_home():
-  return Path(ENV.get("CODEX_HOME") or (Path.home() / ".codex"))
+  return Path(ENV.get("CODEX_HOME") or (Path(ENV.get("OMARCHY_AGENT_HOME") or (Path.home() / ".local" / "omarchyshell" / "agents")) / ".codex"))
 
 
 # Every source folds into one run's totals.

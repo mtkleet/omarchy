@@ -1,3 +1,13 @@
 export OMARCHY_PATH="$HOME/.local/omarchy"
 export PATH="$OMARCHY_PATH/bin:$PATH"
 export XCURSOR_THEME="Qogir-Dark"
+
+export OMARCHY_DATA_HOME="$HOME/.local/omarchyshell"
+export OMARCHY_AGENT_HOME="$OMARCHY_DATA_HOME/agents"
+export OMARCHY_AGENTS_HOME="$OMARCHY_AGENT_HOME/.agents"
+export CLAUDE_CONFIG_DIR="$OMARCHY_AGENT_HOME/.claude"
+export CODEX_HOME="$OMARCHY_AGENT_HOME/.codex"
+export GEMINI_CLI_HOME="$OMARCHY_AGENT_HOME"
+export HERMES_HOME="$OMARCHY_AGENT_HOME/.hermes"
+export PI_CODING_AGENT_DIR="$OMARCHY_AGENT_HOME/.pi/agent"
+export GROK_HOME="$OMARCHY_AGENT_HOME/.grok"

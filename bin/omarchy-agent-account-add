@@ -66,6 +66,10 @@ grok) provider="grok"; name="Grok"; site="x.ai"; package="grok"; home_env="GROK_
   exit 1
   ;;
 esac
+primary_home="${OMARCHY_AGENT_HOME:-$HOME/.local/omarchyshell/agents}/.$provider"
+if [[ -n ${!home_env:-} ]]; then
+  primary_home="${!home_env}"
+fi
 label="${2:-}"
 
 say() {
@@ -142,7 +146,7 @@ esac
 
 # The CLI's own home, whatever this shell has pointed it at.
 login() {
-  interruptible env -u CLAUDE_CONFIG_DIR -u CODEX_HOME -u GROK_HOME "OMARCHY_AGENT_${provider^^}_HOME=" "${login_command[@]}"
+  interruptible env "$home_env=$primary_home" "OMARCHY_AGENT_${provider^^}_HOME=" "${login_command[@]}"
 }
 
 # Signing an account that's already here in again, where it lives: the
@@ -150,13 +154,13 @@ login() {
 # window. Its home is never recreated or removed.
 if [[ -n $reauth ]]; then
   if [[ $reauth == ":primary" ]]; then
-    account_home="$HOME/.$provider"
+    account_home="$primary_home"
   else
     account_home=$(omarchy-agent-account-state homes "$provider" | awk -F'\t' -v id="$reauth" '$1 == id { print $2 }')
   fi
   [[ -n $account_home ]] || fail "$(omarchy-i18n agents.noAccountNamed "$name" "$reauth")"
 
-  if [[ $account_home == "$HOME/.$provider" ]]; then
+  if [[ $account_home == "$primary_home" ]]; then
     say "$(omarchy-i18n agents.signInAgainBrowser "$name")"
     login || fail "$(omarchy-i18n agents.signInFailed "$name")"
   else

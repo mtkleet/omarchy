@@ -68,6 +68,10 @@ if [[ -n $agent_override ]]; then
 else
   agent=$(omarchy-default-agent)
 fi
+if [[ $agent == "agy" ]]; then
+  printf '%s\n' "Antigravity CLI is disabled in this fork because its custom data-home behavior is not verified." >&2
+  exit 1
+fi
 
 # --prefer-local takes the local model when one is up and the usual agent when
 # not, so the Quake console opens on whatever the machine is running. The model

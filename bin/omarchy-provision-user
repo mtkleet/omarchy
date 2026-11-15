@@ -10,7 +10,7 @@ usage() {
 Usage: omarchy finalize user [--force] [--first-install]
 
 Runs the per-user setup steps that /etc/skel can't seed:
-dev-aware skill symlinks, xdg-user-dirs + gtk bookmarks (need \$HOME),
+centralized agent homes and GTK bookmarks,
 default browser/mailto, and install/user/all.sh.
 
 For shipped configs see /etc/skel (new users) and omarchy-reinstall-configs
@@ -65,6 +65,7 @@ export OMARCHY_PATH="${OMARCHY_PATH:-/usr/share/omarchy}"
 export OMARCHY_INSTALL="${OMARCHY_INSTALL:-$OMARCHY_PATH/install}"
 export OMARCHY_SETUP_CONTEXT="${OMARCHY_SETUP_CONTEXT:-runtime}"
 export PATH="$OMARCHY_PATH/bin:$PATH"
+source "$OMARCHY_PATH/uwsm/env-hyprland.d/10-omarchy"
 "$OMARCHY_PATH/bin/omarchy-centralize-user-home"
 
 if (( first_install )) && [[ $OMARCHY_SETUP_CONTEXT == "runtime" ]]; then
@@ -82,30 +83,51 @@ else
   }
 fi
 
-# Dev-aware skill symlinks. Cannot live in /etc/skel because OMARCHY_PATH may
-# point at a dev checkout (omarchy dev link) where the target differs.
-# Loops every skill directory, so shipping a new one needs no edit here.
-mkdir -p ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.pi/agent/skills ~/.gemini/config/skills ~/.hermes/skills
+agent_dirs=(
+  "$OMARCHY_AGENTS_HOME"
+  "$CLAUDE_CONFIG_DIR"
+  "$CODEX_HOME"
+  "$PI_CODING_AGENT_DIR"
+  "$GEMINI_CLI_HOME/.gemini"
+  "$HERMES_HOME"
+  "$GROK_HOME"
+)
+
+for agent_dir in "${agent_dirs[@]}"; do
+  mkdir -p "$agent_dir"
+done
+
+skill_roots=(
+  "$OMARCHY_AGENTS_HOME/skills"
+  "$CLAUDE_CONFIG_DIR/skills"
+  "$CODEX_HOME/skills"
+  "$PI_CODING_AGENT_DIR/skills"
+  "$GEMINI_CLI_HOME/.gemini/skills"
+  "$HERMES_HOME/skills"
+  "$GROK_HOME/skills"
+)
+
+for skill_root in "${skill_roots[@]}"; do
+  mkdir -p "$skill_root"
+done
+
 for skill in "$OMARCHY_PATH"/default/agents/skills/*/; do
+  [[ -d "$skill" ]] || continue
   skill=${skill%/}
   name=${skill##*/}
-  ln -sfn "$skill" ~/.agents/skills/"$name"
-  ln -sfn "$skill" ~/.claude/skills/"$name"
-  ln -sfn "$skill" ~/.codex/skills/"$name"
-  ln -sfn "$skill" ~/.pi/agent/skills/"$name"
-  ln -sfn "$skill" ~/.gemini/config/skills/"$name"
-  ln -sfn "$skill" ~/.hermes/skills/"$name"
-  if [[ -d ~/.hermes/profiles ]]; then
-    for profile in ~/.hermes/profiles/*/; do
-      [[ -d $profile ]] || continue
+  for skill_root in "${skill_roots[@]}"; do
+    ln -sfn "$skill" "$skill_root/$name"
+  done
+
+  if [[ -d "$HERMES_HOME/profiles" ]]; then
+    for profile in "$HERMES_HOME"/profiles/*/; do
+      [[ -d "$profile" ]] || continue
       mkdir -p "$profile/skills"
       ln -sfn "$skill" "$profile/skills/$name"
     done
   fi
 done
 
-# Personal agent rules live in ~/.agents/AGENTS.md beside the skills, linked
-# into each harness that reads its own global instructions file.
 "$OMARCHY_PATH/bin/omarchy-agent-instructions" >/dev/null || true
 
 gtk_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0"
@@ -114,20 +136,19 @@ mkdir -p "$gtk_config_dir"
 # translated folders beside the English ones Omarchy made and bookmarked. A
 # folder the user already named, in any language, stays theirs.
 for dir in Downloads Pictures Videos; do
-  mkdir -p "$HOME/$dir"
+  mkdir -p "$OMARCHY_DATA_HOME/$dir"
 done
 touch "$gtk_config_dir/bookmarks"
 for dir in Downloads Projects Pictures Videos; do
-  target="$HOME/.local/omarchyshell/$dir"
-  [[ -d "$target" ]] || target="$HOME/$dir"
+  target="$OMARCHY_DATA_HOME/$dir"
+  mkdir -p "$target"
   legacy_bookmark="file://$HOME/$dir $dir"
   bookmark="file://$target $dir"
-  if [[ "$target" != "$HOME/$dir" ]]; then
-    temp_bookmarks=$(mktemp)
-    grep -vxF "$legacy_bookmark" "$gtk_config_dir/bookmarks" > "$temp_bookmarks" || true
-    mv -- "$temp_bookmarks" "$gtk_config_dir/bookmarks"
-  fi
-  grep -qxF "$bookmark" "$gtk_config_dir/bookmarks" || printf '%s\n' "$bookmark" >> "$gtk_config_dir/bookmarks"
+  temp_bookmarks=$(mktemp)
+  grep -vxF "$legacy_bookmark" "$gtk_config_dir/bookmarks" > "$temp_bookmarks" || true
+  mv -- "$temp_bookmarks" "$gtk_config_dir/bookmarks"
+  grep -qxF "$bookmark" "$gtk_config_dir/bookmarks" || printf '%s
+' "$bookmark" >> "$gtk_config_dir/bookmarks"
 done
 
 source "$OMARCHY_INSTALL/user/all.sh"
