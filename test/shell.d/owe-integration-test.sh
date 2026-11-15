@@ -4,14 +4,17 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-mkdir -p "$work/bin" "$work/home"
+mkdir -p "$work/bin" "$work/home" "$work/owe"
 export TEST_CALLS="$work/calls"
+theme_hook="$work/owe/10-owe-sync"
+printf "hook\n" >"$theme_hook"
 for command in omarchy-hook-install omarchy-input-method systemctl; do
   cat >"$work/bin/$command" <<'SH'
 #!/bin/bash
 printf '%s %s\n' "${0##*/}" "$*" >>"$TEST_CALLS"
 case "$*" in
   'configure --defaults') [[ ${TEST_INPUT_FAIL:-0} == 0 ]] ;;
+  theme-set\ *) [[ ${TEST_HOOK_FAIL:-0} == 0 ]] ;;
   *) exit 0 ;;
 esac
 SH
@@ -19,16 +22,28 @@ SH
 done
 
 : >"$TEST_CALLS"
-HOME="$work/home" PATH="$work/bin:$PATH" bash "$ROOT/install/user/first-run/enable-user-units.sh"
+HOME="$work/home" OMARCHY_OWE_THEME_HOOK="$theme_hook" PATH="$work/bin:$PATH" bash "$ROOT/install/user/first-run/enable-user-units.sh"
 grep -E '^systemctl --user enable --now .*owed.service' "$TEST_CALLS" >/dev/null
-grep -Fx 'omarchy-hook-install theme-set /usr/share/owe/10-owe-sync' "$TEST_CALLS" >/dev/null
+grep -Fx "omarchy-hook-install theme-set $theme_hook" "$TEST_CALLS" >/dev/null
 pass "fresh installs enable OWE and install the theme refresh hook"
 
 : >"$TEST_CALLS"
-HOME="$work/home" PATH="$work/bin:$PATH" TEST_INPUT_FAIL=1 bash "$ROOT/install/user/first-run/enable-user-units.sh"
+HOME="$work/home" OMARCHY_OWE_THEME_HOOK="$theme_hook" PATH="$work/bin:$PATH" TEST_INPUT_FAIL=1 bash "$ROOT/install/user/first-run/enable-user-units.sh"
 grep -Fx 'omarchy-input-method configure --defaults' "$TEST_CALLS" >/dev/null
 grep -E '^systemctl --user enable --now .*owed.service' "$TEST_CALLS" >/dev/null
 pass "failed input defaults do not block enabling first-run services"
+
+: >"$TEST_CALLS"
+HOME="$work/home" OMARCHY_OWE_THEME_HOOK="$work/owe/missing" PATH="$work/bin:$PATH" bash "$ROOT/install/user/first-run/enable-user-units.sh"
+if grep -Fq 'omarchy-hook-install theme-set' "$TEST_CALLS"; then
+  fail "missing OWE hook is skipped"
+fi
+pass "missing optional OWE hook does not block first-run"
+
+if HOME="$work/home" OMARCHY_OWE_THEME_HOOK="$theme_hook" PATH="$work/bin:$PATH" TEST_HOOK_FAIL=1 bash "$ROOT/install/user/first-run/enable-user-units.sh"; then
+  fail "an OWE hook installation failure is reported"
+fi
+pass "failed OWE hook installation is reported"
 
 cat >"$work/bin/ffmpegthumbnailer" <<'SH'
 #!/bin/bash

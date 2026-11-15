@@ -6,7 +6,8 @@ test_tmp=$(mktemp -d)
 trap 'rm -rf "$test_tmp"' EXIT
 
 mock_bin="$test_tmp/bin"
-mkdir -p "$mock_bin" "$test_tmp/home"
+mkdir -p "$mock_bin" "$test_tmp/home" "$test_tmp/owe"
+: >"$test_tmp/owe/10-owe-sync"
 
 cat >"$mock_bin/omarchy-done" <<'SH'
 #!/bin/bash
@@ -48,7 +49,7 @@ chmod +x "$mock_bin/systemctl" "$mock_bin/omarchy-hook-install"
 
 enable_user_units() {
   rm -f "$test_tmp/calls"
-  PATH="$mock_bin:$PATH" OMARCHY_TEST_CALLS="$test_tmp/calls" OMARCHY_TEST_MISSING_UNIT="$1" OMARCHY_TEST_FAIL_ENABLE="${2:-}" \
+  PATH="$mock_bin:$PATH" OMARCHY_TEST_CALLS="$test_tmp/calls" OMARCHY_TEST_MISSING_UNIT="$1" OMARCHY_TEST_FAIL_ENABLE="${2:-}" OMARCHY_OWE_THEME_HOOK="$test_tmp/owe/10-owe-sync" \
     bash "$ROOT/install/user/first-run/enable-user-units.sh"
 }
 

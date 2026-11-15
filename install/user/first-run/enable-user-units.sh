@@ -34,5 +34,8 @@ for unit in \
   systemctl --user enable --now "$unit" || failed=1
 done
 
-omarchy-hook-install theme-set /usr/share/owe/10-owe-sync
+owe_theme_hook="${OMARCHY_OWE_THEME_HOOK:-/usr/share/owe/10-owe-sync}"
+if [[ -e $owe_theme_hook ]]; then
+  omarchy-hook-install theme-set "$owe_theme_hook" || failed=1
+fi
 exit "$failed"
