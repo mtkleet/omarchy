@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Enable AND start the user systemd units we ship. Runs at first-run rather
+# Enable and start the user units available in this deployment. Some
+# configuration-only deployments omit optional units; those are skipped.
+# Runs at first-run rather
 # than at finalize-user time because the user manager isn't live during the
 # ISO chroot — by first-run, the Hyprland/uwsm session is up and
 # `systemctl --user enable --now` both writes the correct .wants symlinks
@@ -26,6 +28,9 @@ for unit in \
   omarchy-migrate-notify.service \
   omarchy-fcitx5.service \
   omarchy-crash-watch.service; do
+  if ! systemctl --user cat "$unit" >/dev/null 2>&1; then
+    continue
+  fi
   systemctl --user enable --now "$unit" || failed=1
 done
 

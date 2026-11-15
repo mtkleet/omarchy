@@ -27,12 +27,18 @@ grep -F 'First-run already complete' "$test_tmp/output" >/dev/null || fail "comp
 
 pass "completed first-run exits at its lifecycle gate"
 
-# systemctl enables none of a list when one unit in it is unknown, so a unit
-# missing from a build must cost first-run only that unit.
+# Missing optional units are skipped, but failures enabling installed units
+# must still fail first-run.
 cat >"$mock_bin/systemctl" <<'SH'
 #!/bin/bash
-[[ $* != *"$OMARCHY_TEST_MISSING_UNIT"* ]] || exit 1
-printf '%s\n' "$*" >>"$OMARCHY_TEST_CALLS"
+if [[ ${2:-} == cat ]]; then
+  [[ ${3:-} != "$OMARCHY_TEST_MISSING_UNIT" ]]
+  exit
+fi
+if [[ ${2:-} == enable ]]; then
+  [[ ${4:-} != "${OMARCHY_TEST_FAIL_ENABLE:-}" ]] || exit 1
+  printf '%s\n' "$*" >>"$OMARCHY_TEST_CALLS"
+fi
 SH
 cat >"$mock_bin/omarchy-hook-install" <<'SH'
 #!/bin/bash
@@ -42,7 +48,7 @@ chmod +x "$mock_bin/systemctl" "$mock_bin/omarchy-hook-install"
 
 enable_user_units() {
   rm -f "$test_tmp/calls"
-  PATH="$mock_bin:$PATH" OMARCHY_TEST_CALLS="$test_tmp/calls" OMARCHY_TEST_MISSING_UNIT="$1" \
+  PATH="$mock_bin:$PATH" OMARCHY_TEST_CALLS="$test_tmp/calls" OMARCHY_TEST_MISSING_UNIT="$1" OMARCHY_TEST_FAIL_ENABLE="${2:-}" \
     bash "$ROOT/install/user/first-run/enable-user-units.sh"
 }
 
@@ -53,14 +59,15 @@ mapfile -t units < <(sed -n 's/^--user enable --now //p' <<<"$clean_run")
 
 for unit in "${units[@]}"; do
   [[ $unit != *" "* ]] || fail "first-run enables each unit on its own" "$unit"
-  if enable_user_units "$unit"; then
-    fail "first-run reports a unit it could not enable" "$unit"
-  fi
+  enable_user_units "$unit" || fail "first-run skips a missing optional unit" "$unit"
   [[ $(<"$test_tmp/calls") == "$(grep -Fvx -- "--user enable --now $unit" <<<"$clean_run")" ]] ||
     fail "a unit missing from the build costs first-run only that unit" "$unit"
 done
+if enable_user_units no-such-unit "${units[0]}"; then
+  fail "first-run reports an enable failure for an installed unit" "${units[0]}"
+fi
 (( ${#units[@]} > 1 )) || fail "first-run enables each unit on its own"
-pass "a unit missing from the build costs first-run only that unit"
+pass "missing optional units do not block first-run"
 
 # First run offers an update only when there is one. A fresh install from
 # current media is already current, and a critical toast that leads to
